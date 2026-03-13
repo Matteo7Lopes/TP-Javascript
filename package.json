@@ -1,0 +1,24 @@
+{
+  "name": "tp_javascript",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Matteo7Lopes/TP-Javascript.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Matteo7Lopes/TP-Javascript/issues"
+  },
+  "homepage": "https://github.com/Matteo7Lopes/TP-Javascript#readme",
+  "dependencies": {
+    "typescript": "^5.9.3"
+  }
+}
