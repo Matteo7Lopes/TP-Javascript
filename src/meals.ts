@@ -15,7 +15,6 @@ export type MealDraft = Partial<Meal>
 export type MealSummary = Omit<Meal, "calories">
 export type MealCatalog = Record<number, Meal>
 
-
 const API_URL = "https://keligmartin.github.io/api/meals.json"
 
 export async function fetchMeals(): Promise<Meal[]> {

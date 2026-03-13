@@ -27,7 +27,6 @@ export type Wallet = {
   balance: number
 }
 
-
 const STORAGE_KEY = "uberscript_orders"
 
 export class User {
@@ -52,7 +51,9 @@ export class User {
     return this.wallets[0]
   }
 
-  
+  get totalBalance(): number {
+    return this.wallets.reduce((sum, w) => sum + w.balance, 0)
+  }
 
   orderMeal(meal: Meal): Order {
     if (this.wallet.balance < meal.price) {
@@ -77,6 +78,37 @@ export class User {
     return order
   }
 
+  // Ajout pour le Bonus
+  orderMenu(meals: Meal[]): Order {
+    const total = meals.reduce((sum, m) => sum + m.price, 0)
+
+    if (this.wallet.balance < total) {
+      throw new TropPauvreErreur("Fonds insuffisants", this.wallet.balance, total)
+    }
+
+    this.wallet.balance -= total
+
+    const order: Order = {
+      id: this.nextOrderId++,
+      meals,
+      total,
+    }
+
+    this.orders.push(order)
+    this.saveOrders()
+
+    return order
+  }
+
+  cancelOrder(orderId: number): void {
+    const index = this.orders.findIndex((o) => o.id === orderId)
+    if (index === -1) return
+
+    const order = this.orders[index]
+    this.wallet.balance += order.total
+    this.orders.splice(index, 1)
+    this.saveOrders()
+  }
 
   private saveOrders(): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.orders))
@@ -91,4 +123,9 @@ export class User {
       return []
     }
   }
+
+  // Ajout pour le bonus
+  totalSpent(): number {
+  return this.orders.reduce((sum, o) => sum + o.total, 0)
+}
 }

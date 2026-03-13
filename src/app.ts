@@ -3,12 +3,10 @@ import { User, TropPauvreErreur } from "./user.js"
 
 const currentUser = new User(1, "Bob", 30)
 
-
-let allMeals: Meal[] = []         
-let localMeals: Meal[] = []       
-let menuMeals: Meal[] = []        
-let nextLocalId = 1000           
-
+let allMeals: Meal[] = []
+let localMeals: Meal[] = []
+let menuMeals: Meal[] = []
+let nextLocalId = 1000
 
 function getEl<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id)
@@ -50,6 +48,10 @@ function renderMealList(): void {
         <small class="text-muted d-block">${meal.calories} kcal — ${meal.price}€</small>
       </div>
       <div class="d-flex gap-1">
+        <!-- Ajout pour le Bonus -->
+        <button class="btn btn-sm btn-outline-success btn-add-menu" data-id="${meal.id}">
+          + Menu
+        </button>
         <button class="btn btn-sm btn-primary btn-order-single" data-id="${meal.id}">
           Commander
         </button>
@@ -58,7 +60,14 @@ function renderMealList(): void {
     list.appendChild(li)
   }
 
-  // Commander directement
+  // Ajout pour le Bonus
+  list.querySelectorAll<HTMLButtonElement>(".btn-add-menu").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const meal = findMeal(Number(btn.dataset.id))
+      if (meal) addToMenu(meal)
+    })
+  })
+
   list.querySelectorAll<HTMLButtonElement>(".btn-order-single").forEach((btn) => {
     btn.addEventListener("click", () => {
       const meal = findMeal(Number(btn.dataset.id))
@@ -71,7 +80,6 @@ function findMeal(id: number): Meal | undefined {
   return [...allMeals, ...localMeals].find((m) => m.id === id)
 }
 
-
 function setupCreateMeal(): void {
   const btn = getEl<HTMLButtonElement>("addMealBtn")
   btn.addEventListener("click", () => {
@@ -79,7 +87,6 @@ function setupCreateMeal(): void {
     const calories = parseInt(getEl<HTMLInputElement>("mealCalories").value)
     const price = parseFloat(getEl<HTMLInputElement>("mealPrice").value)
 
-    
     const draft: MealDraft = { name, calories, price }
 
     if (!draft.name || isNaN(draft.calories!) || isNaN(draft.price!)) {
@@ -105,6 +112,39 @@ function setupCreateMeal(): void {
   })
 }
 
+// Ajout pour le Bonus
+function addToMenu(meal: Meal): void {
+  menuMeals.push(meal)
+  renderMenuList()
+}
+
+function renderMenuList(): void {
+  const list = getEl<HTMLUListElement>("menuList")
+  list.innerHTML = ""
+
+  if (menuMeals.length === 0) {
+    list.innerHTML = `<li class="list-group-item text-muted">Menu vide.</li>`
+    return
+  }
+
+  menuMeals.forEach((meal, index) => {
+    const li = document.createElement("li")
+    li.className = "list-group-item d-flex justify-content-between align-items-center"
+    li.innerHTML = `
+      <span>${meal.name} — ${meal.price}€</span>
+      <button class="btn btn-sm btn-outline-danger btn-remove-menu" data-index="${index}">✕</button>
+    `
+    list.appendChild(li)
+  })
+
+  list.querySelectorAll<HTMLButtonElement>(".btn-remove-menu").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      menuMeals.splice(Number(btn.dataset.index), 1)
+      renderMenuList()
+      updateMenuTotals()
+    })
+  })
+}
 
 function updateMenuTotals(): void {
   const TVA = 0.1
@@ -116,38 +156,78 @@ function updateMenuTotals(): void {
 }
 
 function setupMenuButtons(): void {
-  // Calculer les totaux
   getEl<HTMLButtonElement>("calculateMenuBtn").addEventListener("click", () => {
     updateMenuTotals()
   })
 
-  
+  // Ajout pour le Bonus
+  const orderMenuBtn = document.getElementById("orderMenuBtn")
+  if (orderMenuBtn) {
+    orderMenuBtn.addEventListener("click", () => {
+      if (menuMeals.length === 0) {
+        showAlert("Le menu est vide.", "warning")
+        return
+      }
+      handleOrderMenu()
+    })
+  }
 }
 
 function handleOrderSingle(meal: Meal): void {
   try {
     const order = currentUser.orderMeal(meal)
     showAlert(
-      ` Commande #${order.id} — <strong>${meal.name}</strong> (${meal.price}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`,
+      `Commande #${order.id} — <strong>${meal.name}</strong> (${meal.price}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`,
       "success"
     )
+    renderTotalSpent()
   } catch (e) {
     if (e instanceof TropPauvreErreur) {
       showAlert(
-        ` Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Prix : ${e.prixCommande.toFixed(2)}€ | Manque : ${(e.prixCommande - e.solde).toFixed(2)}€`,
+        `Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Prix : ${e.prixCommande.toFixed(2)}€ | Manque : ${(e.prixCommande - e.solde).toFixed(2)}€`,
         "danger"
       )
     } else {
-      showAlert(" Erreur inattendue.", "danger")
+      showAlert("Erreur inattendue.", "danger")
     }
   }
 }
 
-// Bootstrap
+// Ajout pour le Bonus
+function handleOrderMenu(): void {
+  try {
+    const order = currentUser.orderMenu(menuMeals)
+    showAlert(
+      `Menu commandé — Commande #${order.id} (${order.total.toFixed(2)}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`,
+      "success"
+    )
+    menuMeals = []
+    renderMenuList()
+    updateMenuTotals()
+    renderTotalSpent()
+  } catch (e) {
+    if (e instanceof TropPauvreErreur) {
+      showAlert(
+        `Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Total menu : ${e.prixCommande.toFixed(2)}€`,
+        "danger"
+      )
+    } else {
+      showAlert("Erreur inattendue.", "danger")
+    }
+  }
+}
+
+// Ajout pour le bonus 
+function renderTotalSpent(): void {
+  const el = document.getElementById("totalSpent")
+  if (el) el.textContent = currentUser.totalSpent().toFixed(2)
+}
 
 async function init(): Promise<void> {
   setupCreateMeal()
   setupMenuButtons()
+  renderMenuList()
+  renderTotalSpent()
 
   allMeals = await fetchMeals()
   renderMealList()

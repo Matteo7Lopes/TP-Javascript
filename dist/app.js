@@ -48,6 +48,10 @@ function renderMealList() {
         <small class="text-muted d-block">${meal.calories} kcal — ${meal.price}€</small>
       </div>
       <div class="d-flex gap-1">
+        <!-- Ajout pour le Bonus -->
+        <button class="btn btn-sm btn-outline-success btn-add-menu" data-id="${meal.id}">
+          + Menu
+        </button>
         <button class="btn btn-sm btn-primary btn-order-single" data-id="${meal.id}">
           Commander
         </button>
@@ -55,7 +59,14 @@ function renderMealList() {
     `;
         list.appendChild(li);
     }
-    // Commander directement
+    // Ajout pour le Bonus
+    list.querySelectorAll(".btn-add-menu").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const meal = findMeal(Number(btn.dataset.id));
+            if (meal)
+                addToMenu(meal);
+        });
+    });
     list.querySelectorAll(".btn-order-single").forEach((btn) => {
         btn.addEventListener("click", () => {
             const meal = findMeal(Number(btn.dataset.id));
@@ -92,6 +103,35 @@ function setupCreateMeal() {
         showAlert(`Repas "${meal.name}" ajouté à la liste.`, "success");
     });
 }
+// Ajout pour le Bonus
+function addToMenu(meal) {
+    menuMeals.push(meal);
+    renderMenuList();
+}
+function renderMenuList() {
+    const list = getEl("menuList");
+    list.innerHTML = "";
+    if (menuMeals.length === 0) {
+        list.innerHTML = `<li class="list-group-item text-muted">Menu vide.</li>`;
+        return;
+    }
+    menuMeals.forEach((meal, index) => {
+        const li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.innerHTML = `
+      <span>${meal.name} — ${meal.price}€</span>
+      <button class="btn btn-sm btn-outline-danger btn-remove-menu" data-index="${index}">✕</button>
+    `;
+        list.appendChild(li);
+    });
+    list.querySelectorAll(".btn-remove-menu").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            menuMeals.splice(Number(btn.dataset.index), 1);
+            renderMenuList();
+            updateMenuTotals();
+        });
+    });
+}
 function updateMenuTotals() {
     const TVA = 0.1;
     const totalHT = menuMeals.reduce((sum, m) => sum + m.price, 0);
@@ -100,30 +140,67 @@ function updateMenuTotals() {
     getEl("menuTotalTTC").textContent = totalTTC.toFixed(2);
 }
 function setupMenuButtons() {
-    // Calculer les totaux
     getEl("calculateMenuBtn").addEventListener("click", () => {
         updateMenuTotals();
     });
+    // Ajout pour le Bonus
+    const orderMenuBtn = document.getElementById("orderMenuBtn");
+    if (orderMenuBtn) {
+        orderMenuBtn.addEventListener("click", () => {
+            if (menuMeals.length === 0) {
+                showAlert("Le menu est vide.", "warning");
+                return;
+            }
+            handleOrderMenu();
+        });
+    }
 }
 function handleOrderSingle(meal) {
     try {
         const order = currentUser.orderMeal(meal);
-        showAlert(` Commande #${order.id} — <strong>${meal.name}</strong> (${meal.price}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`, "success");
+        showAlert(`Commande #${order.id} — <strong>${meal.name}</strong> (${meal.price}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`, "success");
+        renderTotalSpent();
     }
     catch (e) {
         if (e instanceof TropPauvreErreur) {
-            showAlert(` Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Prix : ${e.prixCommande.toFixed(2)}€ | Manque : ${(e.prixCommande - e.solde).toFixed(2)}€`, "danger");
+            showAlert(`Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Prix : ${e.prixCommande.toFixed(2)}€ | Manque : ${(e.prixCommande - e.solde).toFixed(2)}€`, "danger");
         }
         else {
-            showAlert(" Erreur inattendue.", "danger");
+            showAlert("Erreur inattendue.", "danger");
         }
     }
 }
-// Bootstrap
+// Ajout pour le Bonus
+function handleOrderMenu() {
+    try {
+        const order = currentUser.orderMenu(menuMeals);
+        showAlert(`Menu commandé — Commande #${order.id} (${order.total.toFixed(2)}€). Solde : ${currentUser.wallet.balance.toFixed(2)}€`, "success");
+        menuMeals = [];
+        renderMenuList();
+        updateMenuTotals();
+        renderTotalSpent();
+    }
+    catch (e) {
+        if (e instanceof TropPauvreErreur) {
+            showAlert(`Fonds insuffisants — Solde : ${e.solde.toFixed(2)}€ | Total menu : ${e.prixCommande.toFixed(2)}€`, "danger");
+        }
+        else {
+            showAlert("Erreur inattendue.", "danger");
+        }
+    }
+}
+// Ajout pour le bonus 
+function renderTotalSpent() {
+    const el = document.getElementById("totalSpent");
+    if (el)
+        el.textContent = currentUser.totalSpent().toFixed(2);
+}
 function init() {
     return __awaiter(this, void 0, void 0, function* () {
         setupCreateMeal();
         setupMenuButtons();
+        renderMenuList();
+        renderTotalSpent();
         allMeals = yield fetchMeals();
         renderMealList();
     });

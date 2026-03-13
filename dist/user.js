@@ -27,6 +27,9 @@ export class User {
     get wallet() {
         return this.wallets[0];
     }
+    get totalBalance() {
+        return this.wallets.reduce((sum, w) => sum + w.balance, 0);
+    }
     orderMeal(meal) {
         if (this.wallet.balance < meal.price) {
             throw new TropPauvreErreur("Fonds insuffisants", this.wallet.balance, meal.price);
@@ -41,6 +44,31 @@ export class User {
         this.saveOrders();
         return order;
     }
+    // Ajout pour le Bonus
+    orderMenu(meals) {
+        const total = meals.reduce((sum, m) => sum + m.price, 0);
+        if (this.wallet.balance < total) {
+            throw new TropPauvreErreur("Fonds insuffisants", this.wallet.balance, total);
+        }
+        this.wallet.balance -= total;
+        const order = {
+            id: this.nextOrderId++,
+            meals,
+            total,
+        };
+        this.orders.push(order);
+        this.saveOrders();
+        return order;
+    }
+    cancelOrder(orderId) {
+        const index = this.orders.findIndex((o) => o.id === orderId);
+        if (index === -1)
+            return;
+        const order = this.orders[index];
+        this.wallet.balance += order.total;
+        this.orders.splice(index, 1);
+        this.saveOrders();
+    }
     saveOrders() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.orders));
     }
@@ -54,5 +82,9 @@ export class User {
         catch (_a) {
             return [];
         }
+    }
+    // Ajout pour le bonus
+    totalSpent() {
+        return this.orders.reduce((sum, o) => sum + o.total, 0);
     }
 }
